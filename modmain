@@ -1,0 +1,95 @@
+if GetModConfigData("lang") == "zh" then
+    common_string_warn = "清汤提醒您:"
+    common_string_hammer = "正在砸"
+    common_string_light = "正在烧"
+    common_string_castspell = "正在使用"
+else   
+    common_string_warn = "Warning: "
+    common_string_hammer = " is Hammering "
+    common_string_light = "is lighting "
+    common_string_castspell = "is castspelling"
+end
+common_string_timemark = "["..GLOBAL.os.date("%Y-%m-%d|%H:%M:%S").."] "
+
+--警告熊大/巨鹿拆家
+local function GetDebugString(inst,target)
+    return common_string_timemark..GLOBAL.STRINGS.NAMES[string.upper(inst.prefab)].." | 在砸"..GLOBAL.STRINGS.NAMES[string.upper(target.prefab)]
+end
+
+local function GetAnnounceString(inst,target)
+    return common_string_warn..GLOBAL.STRINGS.NAMES[string.upper(inst.prefab)].." 正在拆"..GLOBAL.STRINGS.NAMES[string.upper(target.prefab)]
+end
+
+local listener = {"deerclops","bearger"}
+for k, v in pairs(listener) do
+    AddPrefabPostInit(v, function(inst)
+        inst:ListenForEvent("working", function(inst, data)
+            if data and data.target and data.target:HasTag("structure") then
+                print(GetDebugString(inst, data.target))
+                GLOBAL.TheNet:Announce(GetAnnounceString(inst,data.target))
+            end
+        end)
+    end)
+end
+
+
+--警告锤子敲击
+local _ACTION_HAMMER = GLOBAL.ACTIONS.HAMMER.fn
+GLOBAL.ACTIONS.HAMMER.fn = function(act)
+    if act.doer and act.target and act.target.components.workable.workleft == 2 and act.doer.components.age:GetDisplayAgeInDays()<_G.DropEverything.SDays then
+        local item = act.target
+        if item:HasTag("structure") then--检测物品是否有建筑标签
+        --if item and item.prefab == "firesuppressor" then--检测是否在砸雪球机
+            if GetModConfigData("notice_method") == 1 then
+                GLOBAL.TheNet:Announce(common_string_warn..act.doer.name..common_string_hammer..act.target.name)
+            elseif GetModConfigData("notice_method") == 2 then
+                GLOBAL.TheNet:SystemMessage(common_string_warn..act.doer.name..common_string_hammer..act.target.name)
+            end
+            if act.doer.userid then
+            print(common_string_timemark..act.doer.name.."("..act.doer.userid..")"..common_string_hammer..act.target.name)
+            end
+        end
+    end
+    return _ACTION_HAMMER(act)
+end
+
+
+--警告点燃活动
+local _ACTION_LIGHT = GLOBAL.ACTIONS.LIGHT.fn
+GLOBAL.ACTIONS.LIGHT.fn = function(act)
+    if act.doer and act.target and act.doer.components.age:GetDisplayAgeInDays()<_G.DropEverything.SDays then
+        local item = act.target
+        --local ProtectList = {"treasurechest","cookpot","researchlab","researchlab2","researchlab4","mushroom_light","tent"}--设置保护名单，一旦点燃列表中物品将警告
+        --for k,v in pairs(ProtectList) do 
+        if item:HasTag("structure") then
+            if GetModConfigData("notice_method") == 1 then
+                GLOBAL.TheNet:Announce(common_string_warn..act.doer.name..common_string_light..act.target.name)
+            elseif GetModConfigData("notice_method") == 2 then
+                GLOBAL.TheNet:SystemMessage(common_string_warn..act.doer.name..common_string_light..act.target.name)
+            end
+            if act.doer.userid then
+                print(common_string_timemark..act.doer.name.."("..act.doer.userid..")"..common_string_light..act.target.name)
+            end
+         end
+        --end
+    end
+    return _ACTION_LIGHT(act)
+end
+
+
+--警告使用唤星/唤月/传送/分解
+local _ACTION_CASTSPELL = GLOBAL.ACTIONS.CASTSPELL.fn
+GLOBAL.ACTIONS.CASTSPELL.fn = function(act)
+    if act.doer and act.doer.components.age:GetDisplayAgeInDays()<_G.DropEverything.SDays then
+        local staff = act.invobject or act.doer.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS)
+        if GetModConfigData("notice_method") == 1 then
+            GLOBAL.TheNet:Announce(common_string_warn..act.doer.name..common_string_castspell..tostring(GLOBAL.STRINGS.NAMES[string.upper(staff.prefab)]))
+        elseif GetModConfigData("notice_method") == 2 then
+            GLOBAL.TheNet:SystemMessage(common_string_warn..act.doer.name..common_string_castspell..tostring(GLOBAL.STRINGS.NAMES[string.upper(staff.prefab)]))
+        end
+        if act.doer.userid then
+            print(common_string_timemark..act.doer.name.."("..act.doer.userid..")"..common_string_castspell..tostring(GLOBAL.STRINGS.NAMES[string.upper(staff.prefab)]))
+        end
+    end
+    return _ACTION_CASTSPELL(act)
+end
